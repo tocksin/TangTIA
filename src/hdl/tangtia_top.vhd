@@ -26,7 +26,6 @@ library work;           use work.sys_description_pkg.all;
 
 entity tangtia_top is
     port (  clk         : in sl;    -- 27 MHz
-            resetn      : in sl;
             led         : in slv(5 downto 0);
             btn1        : in  sl;
             btn2        : in  sl;
@@ -101,7 +100,7 @@ architecture rtl of tangtia_top is
     
 begin
 
-    reset <= not resetn;
+    reset <= not btn2;
     
     -- TIA module
     --  Takes in the bus pins

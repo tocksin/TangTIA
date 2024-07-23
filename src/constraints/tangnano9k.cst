@@ -9,10 +9,14 @@
 // System functions
 IO_LOC "clk" 52;
 IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
-IO_LOC "resetn" 4;
-IO_PORT "resetn" PULL_MODE=UP;
 
-// LED
+// Buttons (active low)
+IO_LOC "btn1" 3;
+IO_PORT "btn1" IO_TYPE=LVCMOS18;
+IO_LOC "btn2" 4;
+IO_PORT "btn2" IO_TYPE=LVCMOS18;
+
+// LED (active low)
 IO_LOC "led[5]" 16;
 IO_PORT "led[5]" PULL_MODE=UP DRIVE=8;
 IO_LOC "led[4]" 15;
@@ -69,12 +73,6 @@ IO_LOC "flashMosi" 61;
 IO_PORT "flashMosi" IO_TYPE=LVCMOS33;
 IO_LOC "flashMiso" 62;
 IO_PORT "flashMiso" IO_TYPE=LVCMOS33;
-
-// Buttons
-IO_LOC "btn1" 3;
-IO_PORT "btn1" IO_TYPE=LVCMOS18;
-IO_LOC "btn2" 4;
-IO_PORT "btn2" IO_TYPE=LVCMOS18;
 
 // Connector pins (3.3V) (unused elsewhere)
 IO_LOC "pin25" 25;

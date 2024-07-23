@@ -27,11 +27,15 @@ library work;           use work.sys_description_pkg.all;
 entity tangtia_top is
     port (  clk         : in sl;    -- 27 MHz
             resetn      : in sl;
---            led         : in slv(5 downto 0);
-            tmds_d_p    : out slv(2 downto 0);
-            tmds_d_n    : out slv(2 downto 0);
-            tmds_clk_p  : out sl;
-            tmds_clk_n  : out sl;
+            led         : in slv(5 downto 0);
+            btn1        : in  sl;
+            btn2        : in  sl;
+            
+            tmdsDataP   : out slv(2 downto 0);
+            tmdsDataN   : out slv(2 downto 0);
+            tmdsClkP    : out sl;
+            tmdsClkN    : out sl;
+
             uartTx      : out sl;
             uartRx      : in sl;
 
@@ -44,9 +48,6 @@ entity tangtia_top is
             flashCs     : out sl;
             flashMosi   : out sl;
             flashMiso   : in  sl;
-
-            btn1        : in  sl;
-            btn2        : in  sl;
 
             pin25       : in  sl;
             pin26       : in  sl;
@@ -80,21 +81,28 @@ architecture rtl of tangtia_top is
 
     constant VIDEOID          : integer := 2; -- 720x480, 27MHz pixel clock
     constant VIDEO_REFRESH    : real    := 59.94;
-    constant AUDIO_RATE       : integer := 44100;
+    constant AUDIO_RATE       : integer := 48000;
+--    constant AUDIO_CNTS       : integer :=  clock_frequency / audio_rate / 2
+    constant AUDIO_CNTS       : integer := 281;
     constant AUDIO_BIT_WIDTH  : integer := 16;
     constant BIT_WIDTH        : integer := 10;
     constant BIT_HEIGHT       : integer := 10;
 
+    signal reset        : sl;
     signal clkPixel     : sl;
     signal lock         : sl;
-    signal clkAudio     : sl;
+    signal clkAudio     : sl := '0';
     signal audioWord    : slv(1 downto 0);
     signal rgb          : slv(23 downto 0);
     signal cx           : slv(BIT_WIDTH-1 downto 0);
     signal cy           : slv(BIT_HEIGHT-1 downto 0);
+    signal tmds         : slv(2 downto 0);
+    signal tmdsClk      : sl;
     
 begin
 
+    reset <= not resetn;
+    
     -- TIA module
     --  Takes in the bus pins
     --  Output x/y pixel and color for that pixel
@@ -106,12 +114,25 @@ begin
     -- HDMI module
     --  Reads video from RAM
 
-
+    -- HDMI clocks
     pllComp : entity work.pll_hdmi
         port map (  clkin   => clk,          -- 27MHz
                     clkout  => clkPixel,       -- 5x pixel clock: 135 Mhz
                     lock    => lock);
 
+    -- not the best way to generate a clock
+    audioClkProc : process (clk)
+    begin
+        if rising_edge(clk) then
+            if (audio_divider=0) then
+                audioCnt <= AUDIO_CNTS;
+                clkAudio <=  not clkAudio; 
+            else
+                audioCnt <= audioCnt - 1;
+            end if;
+        end if;
+    end process audioClkProc;
+    
     hdmiComp : entity work.hdmi
         generic map(VIDEO_ID_CODE       => VIDEOID,
                     DVI_OUTPUT          => 0,
@@ -139,12 +160,39 @@ begin
                     tmds_clock          => tmdsClk,
                     tmds                => tmds);
 
-    -- // Gowin LVDS output buffer
-    -- ELVDS_OBUF tmds_bufds [3:0] (
-        -- .I({clk_pixel, tmds}),
-        -- .O({tmds_clk_p, tmds_d_p}),
-        -- .OB({tmds_clk_n, tmds_d_n})
-    -- );
+    -- Test video
+    rgb(23 downto 16) <= cx(7 downto 0);
+    rgb(15 downto 8) <= cy(7 downto 0);
+    rgb(7 downto 0) <= cx(9 downto 8) & cy(9 downto 8) & "0000";
 
+    -- Test audio
+    testAudioProc : process (clkAudio)
+    begin
+        if rising_edge(clkAudio) then
+            audioWord(1) <= audioWord(1) + 1;
+            audioWord(0) <= audioWord(0) - 1;
+        end if;
+    end process testAudioProc;
+
+    -- HDMI output buffers
+    tmdsBuffer0 : entity ELVDS_OBUF
+        port map(   I   => tmds(0),
+                    O   => tmdsDataP(0),
+                    OB  => tmdsDataN(0));
+
+    tmdsBuffer1 : entity ELVDS_OBUF
+        port map(   I   => tmds(1),
+                    O   => tmdsDataP(1),
+                    OB  => tmdsDataN(1));
+
+    tmdsBuffer2 : entity ELVDS_OBUF
+        port map(   I   => tmds(2),
+                    O   => tmdsDataP(2),
+                    OB  => tmdsDataN(2));
+
+    tmdsBuffer3 : entity ELVDS_OBUF
+        port map(   I   => tmdsClk,
+                    O   => tmdsClkP,
+                    OB  => tmdsClkN);
 
 end architecture rtl;

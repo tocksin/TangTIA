@@ -25,13 +25,14 @@ library work;       use work.tools_pkg.all;
 package sys_description_pkg is
 
     -- Clock periods
-    constant INPUT_CLOCK_PERIOD           : time    :=   100 ns; -- 10 MHz
+    constant INPUT_CLOCK_PERIOD           : time    :=   37.037 ns; -- 27 MHz
     constant SYS_CLOCK_PERIOD             : time    :=   INPUT_CLOCK_PERIOD*2;
     constant HEARTBEAT_PERIOD             : time    :=  1000 ms; -- 1 Hz
     constant HEARTBEAT_CNTS               : integer := HEARTBEAT_PERIOD / SYS_CLOCK_PERIOD;
 --    constant HEARTBEAT_CNTS               : integer := 12000000;
     constant HEARTBEAT_CNT_SIZE           : natural := log2(HEARTBEAT_CNTS,UP);
-
+    
+    constant UART_RATE                    : integer := 115200;
 
 end sys_description_pkg;
 

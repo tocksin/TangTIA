@@ -1,0 +1,24 @@
+<?xml version="1" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW1NR-9" pn="GW1NR-LV9QN88PC6/I5">gw1nr9-012</Device>
+    <FileList>
+        <File path="C:/git/TangTIA/src/hdl/hdmi2/audio_clock_regeneration_packet.sv" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/hdmi2/audio_info_frame.sv" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/hdmi2/audio_sample_packet.sv" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/hdmi2/auxiliary_video_information_info_frame.sv" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/hdmi2/hdmi.sv" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/hdmi2/packet_assembler.sv" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/hdmi2/packet_picker.sv" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/hdmi2/serializer.sv" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/hdmi2/source_product_description_info_frame.sv" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/hdmi2/tmds_channel.sv" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/sys_description_pkg.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/tangtia_top.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/tools_pkg.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/ip/gowin_rpll/gowin_rpll.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/constraints/tangnano9k.cst" type="file.cst" enable="1"/>
+    </FileList>
+</Project>

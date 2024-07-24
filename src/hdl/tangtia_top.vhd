@@ -78,6 +78,14 @@ end entity tangtia_top;
 
 architecture rtl of tangtia_top is
 
+COMPONENT ELVDS_OBUF
+ PORT (
+ O:OUT std_logic;
+ OB:OUT std_logic;
+ I:IN std_logic
+ );
+END COMPONENT;
+
     constant VIDEOID          : integer := 2; -- 720x480, 27MHz pixel clock
     constant VIDEO_REFRESH    : real    := 59.94;
     constant AUDIO_RATE       : integer := 48000;
@@ -86,18 +94,20 @@ architecture rtl of tangtia_top is
     constant AUDIO_BIT_WIDTH  : integer := 16;
     constant BIT_WIDTH        : integer := 10;
     constant BIT_HEIGHT       : integer := 10;
+    
+    type audioArrayType is array (1 downto 0) of slv(15 downto 0);
 
     signal reset        : sl;
     signal clkPixel     : sl;
     signal lock         : sl;
     signal clkAudio     : sl := '0';
-    signal audioWord    : slv(1 downto 0);
+    signal audioWord    : audioArrayType;
     signal rgb          : slv(23 downto 0);
     signal cx           : slv(BIT_WIDTH-1 downto 0);
     signal cy           : slv(BIT_HEIGHT-1 downto 0);
     signal tmds         : slv(2 downto 0);
     signal tmdsClk      : sl;
-    
+    signal audioCnt     : unsigned(8 downto 0);
 begin
 
     reset <= not btn2;
@@ -114,7 +124,7 @@ begin
     --  Reads video from RAM
 
     -- HDMI clocks
-    pllComp : entity work.pll_hdmi
+    pllComp : entity work.Gowin_rPLL
         port map (  clkin   => clk,          -- 27MHz
                     clkout  => clkPixel,       -- 5x pixel clock: 135 Mhz
                     lock    => lock);
@@ -123,8 +133,8 @@ begin
     audioClkProc : process (clk)
     begin
         if rising_edge(clk) then
-            if (audio_divider=0) then
-                audioCnt <= AUDIO_CNTS;
+            if (audioCnt=0) then
+                audioCnt <= to_unsigned(AUDIO_CNTS,audioCnt'length);
                 clkAudio <=  not clkAudio; 
             else
                 audioCnt <= audioCnt - 1;
@@ -141,7 +151,7 @@ begin
                     AUDIO_BIT_WIDTH     => AUDIO_BIT_WIDTH,
                     START_X             => 0,
                     START_Y             => 0)
-        port map (  reset               => not resetn, -- active high
+        port map (  reset               => reset,
                     clk_pixel           => clk,
                     clk_pixel_x5        => clkPixel,
 
@@ -168,29 +178,29 @@ begin
     testAudioProc : process (clkAudio)
     begin
         if rising_edge(clkAudio) then
-            audioWord(1) <= audioWord(1) + 1;
-            audioWord(0) <= audioWord(0) - 1;
+            audioWord(1) <= slv(unsigned(audioWord(1)) + 1);
+            audioWord(0) <= slv(unsigned(audioWord(0)) - 1);
         end if;
     end process testAudioProc;
 
     -- HDMI output buffers
-    tmdsBuffer0 : entity ELVDS_OBUF
+    tmdsBuffer0 : ELVDS_OBUF
         port map(   I   => tmds(0),
                     O   => tmdsDataP(0),
                     OB  => tmdsDataN(0));
 
-    tmdsBuffer1 : entity ELVDS_OBUF
+    tmdsBuffer1 : ELVDS_OBUF
         port map(   I   => tmds(1),
                     O   => tmdsDataP(1),
                     OB  => tmdsDataN(1));
 
-    tmdsBuffer2 : entity ELVDS_OBUF
+    tmdsBuffer2 : ELVDS_OBUF
         port map(   I   => tmds(2),
                     O   => tmdsDataP(2),
                     OB  => tmdsDataN(2));
 
-    tmdsBuffer3 : entity ELVDS_OBUF
-        port map(   I   => tmdsClk,
+    tmdsBuffer3 : ELVDS_OBUF
+        port map(   I   => clkPixel,
                     O   => tmdsClkP,
                     OB  => tmdsClkN);
 

@@ -114,6 +114,19 @@ begin
     
     -- TIA module
     --  Takes in the bus pins
+        -- databus(7 downto 0)
+        -- addrbus(5 downto 0)
+        -- cs0_n                -- needs to be low to be valid address
+        -- cs3_n                -- needs to be low to be valid address
+        -- r/w
+        -- OSC                  -- primary fast clock 3.58MHz
+        -- PHI0                 -- derived from OSC, output to the CPU
+        -- PHI2                 -- input back from CPU, 1.19MHz
+        -- RDY
+        -- If the read-write line is low, 
+        --   the data bits will be written into the addressed write location when the 02 clock goes from high to low.
+        -- If the read-write line is high, 
+        --   the addressed location can be read by the microprocessor on data lines 6 and 7 while the 02 clock is high.
     --  Output x/y pixel and color for that pixel
 
     -- Dual port RAM module

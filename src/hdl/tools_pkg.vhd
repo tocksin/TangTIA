@@ -20,28 +20,29 @@
 
 library ieee;       use ieee.std_logic_1164.all;
                     use ieee.numeric_std.all;
-                    
+
 package tools_pkg is
 
     subtype slv is std_logic_vector;
     subtype sl  is std_logic;
 
     constant SIM_INDENT         : string  := "    ";
-    constant SIM_RETURN         : string  := LF & SIM_INDENT;  
+    constant SIM_RETURN         : string  := LF & SIM_INDENT;
 
     constant STRING_LENGTH      : natural := 20;
+    constant MEM_ADDR_SIZE      : integer := 8;
 
-    type DirType              is (LEFT, RIGHT, UP, DOWN);  
-    type memMapAccType        is (RW,RO,WO);  -- Memory map access type 
+    type DirType              is (LEFT, RIGHT, UP, DOWN);
+    type memMapAccType        is (RW,RO,WO);  -- Memory map access type
 
     subtype memMapStringType  is string(1 to STRING_LENGTH);
-  
+
     type memMapRecordType     is record
         name    : memMapStringType;
-        addr    : slv(15 downto 0);
+        addr    : slv(MEM_ADDR_SIZE-1 downto 0);
         acc     : memMapAccType;
         init    : slv(15 downto 0);
-    end record; 
+    end record;
 
     type memMapRecArrayType   is array (natural range <>) of memMapRecordType;
     type charArray            is array (integer range<>) of std_logic_vector(7 downto 0);
@@ -53,8 +54,8 @@ package tools_pkg is
     -- Function prototypes
     -------------------------------------------------------------------------------
     -- String functions
-    -- function toString( arg: slv )                return string;    
-    -- function toString( arg: unsigned )           return string;    
+    -- function toString( arg: slv )                return string;
+    -- function toString( arg: unsigned )           return string;
     function nameResize(argument : string)       return string;
     function to_slv(str : string)                return slv;
     function to_chararray(str : string)          return charArray;
@@ -79,8 +80,8 @@ package tools_pkg is
         direction   : DirType := DOWN
         ) return natural;
     function mapDontCares  -- std_logic version
-        (arg : sl; 
-         match : sl := '0')  
+        (arg : sl;
+         match : sl := '0')
          return sl;
     function mapDontCares -- std_logic_vector version
         (arg : slv;
@@ -91,17 +92,17 @@ package tools_pkg is
     function accString(argument : memMapAccType) return string;
     function memRec
        (name    : memMapStringType;
-        addr    : slv(15 downto 0);
+        addr    : slv(MEM_ADDR_SIZE-1 downto 0);
         acc     : memMapAccType;
-        init    : slv(15 downto 0) := x"0000") 
+        init    : slv(15 downto 0) := x"0000")
         return memMapRecordType;
     function memAddr
        (name    : string;
         memMap  : memMapRecArrayType)
-        return slv;        
-    function memIndex( 
+        return slv;
+    function memIndex(
         argument : string;
-        memMap   : memMapRecArrayType) 
+        memMap   : memMapRecArrayType)
         return natural;
 
     -- BCD conversion (two digits)
@@ -114,15 +115,15 @@ package tools_pkg is
 procedure FF    -- for std_logic
     (signal   iClk       : in  sl;
      signal   iRst       : in  sl;
-     constant iD         : in  sl; -- FF input 
+     constant iD         : in  sl; -- FF input
      signal   oQ         : out sl; -- FF output
      constant INIT       : in  sl := '0'; -- initial and reset value of output
-     constant en         : in  sl := '1');  -- optional enable 
+     constant en         : in  sl := '1');  -- optional enable
 
 procedure FF    -- for std_logic_vector
     (signal   iClk       : in  sl;
      signal   iRst       : in  sl;
-     constant iD         : in  slv; -- FF input 
+     constant iD         : in  slv; -- FF input
      signal   oQ         : out slv; -- FF output
      constant INIT       : in  slv; -- initial and reset value of output
      constant en         : in  sl := '1');
@@ -130,11 +131,11 @@ procedure FF    -- for std_logic_vector
 procedure FF    -- for unsigned vector
     (signal   iClk       : in  sl;
      signal   iRst       : in  sl;
-     constant iD         : in  unsigned; -- FF input 
+     constant iD         : in  unsigned; -- FF input
      signal   oQ         : out unsigned; -- FF output
      constant INIT       : in  unsigned; -- initial and reset value of output
-     constant en         : in  sl := '1');  -- optional enable 
-     
+     constant en         : in  sl := '1');  -- optional enable
+
 procedure onePulse
        (signal   clk        : in sl;
         signal   rst        : in sl;
@@ -161,7 +162,7 @@ package body tools_pkg is
     begin
         case direction is
             when LEFT | DOWN =>
-                if (argument'length < width) then 
+                if (argument'length < width) then
                     return (1 to (width-argument'length) => ' ') & argument; -- extend
                 else
                     return argument(argument'right-width+1 to argument'right); -- truncate
@@ -222,8 +223,8 @@ package body tools_pkg is
         variable convert : unsigned(31 downto 0) := to_unsigned(argument, 32);
     begin
         return log2(convert, direction);
-    end function log2;    
-    
+    end function log2;
+
     -------------------------------------------------------------------------------
     -- accString - returns string for the specified enumerated access type
     -------------------------------------------------------------------------------
@@ -236,7 +237,7 @@ package body tools_pkg is
             when others => return "UNKNOWN";
         end case;
     end function accString;
-    
+
     -------------------------------------------------------------------------------
     -- nameResize - resizes the string to match the name length of the memMapStringType
     -------------------------------------------------------------------------------
@@ -255,11 +256,11 @@ package body tools_pkg is
 --      variable res_v : std_logic_vector(8 * str'length - 1 downto 0);
 --    begin
 --      for idx in str_norm'range loop
---        res_v(8 * idx - 1 downto 8 * idx - 8) := 
+--        res_v(8 * idx - 1 downto 8 * idx - 8) :=
 --          std_logic_vector(to_unsigned(character'pos(str_norm(idx)), 8));
 --      end loop;
 --      return res_v;
-        
+
         variable rtnVar : slv   (str'right-1 downto   0); -- 15 downto 0
 --        variable rtnVar : slv   (len-1 downto   0); -- 15 downto 0
     begin
@@ -268,7 +269,7 @@ package body tools_pkg is
         end loop;
         return rtnVar;
     end function;
-    
+
     -------------------------------------------------------------------------------
     -- toSL - character to one std_logic using a case statement
     -------------------------------------------------------------------------------
@@ -296,7 +297,7 @@ package body tools_pkg is
         end case;
         return returnVar;
     end function toSL;
-    
+
     -------------------------------------------------------------------------------
     -- to_chararray - string to array of std_logic_vectors in 8-bit format using character'pos(c)
     -------------------------------------------------------------------------------
@@ -309,7 +310,7 @@ package body tools_pkg is
       end loop;
       return res_v;
     end function;
-    
+
     -------------------------------------------------------------------------------
     -- hexToBin - convert a hexidecimal character into a valid slv string
     -------------------------------------------------------------------------------
@@ -354,7 +355,7 @@ package body tools_pkg is
     function hexToBin
         (arg    : string)
         return string is
-        
+
         constant normal    : string(1 to arg'length)   := arg;
         variable returnVar : string(1 to arg'length*4) := (others=>'X');
     begin
@@ -395,7 +396,7 @@ package body tools_pkg is
         (arg : slv;
          match : sl  := '0')
          return slv is
-        variable returnVector : slv(arg'range); 
+        variable returnVector : slv(arg'range);
     begin
         for i in arg'range loop
             returnVector(i) := mapDontCares(arg(i),match);
@@ -405,7 +406,7 @@ package body tools_pkg is
 
 -------------------------------------------------------------------------------
 -- onePulse - output one clock pulse until input signal returns to non-edge level
--- EDGE = '1' => RISING-EDGE DETECTION ;  '0' => FALLING-EDGE DETECTION    
+-- EDGE = '1' => RISING-EDGE DETECTION ;  '0' => FALLING-EDGE DETECTION
 -------------------------------------------------------------------------------
     procedure onePulse
        (signal   clk        : in sl;
@@ -413,29 +414,29 @@ package body tools_pkg is
         signal   newInput   : in sl;
         signal   delayed    : inout sl;
         signal   pulse      : inout sl;
-        constant edge       : in sl := '1') is  
+        constant edge       : in sl := '1') is
         variable tempPulse  : sl;
     begin
         if (rst = '1') then
             delayed <= '0';
         elsif rising_edge(clk) then
-            delayed <= edge xor newInput; 
+            delayed <= edge xor newInput;
         end if;
-        
+
         pulse <= (not(edge) and not(newInput) and delayed) or      -- FALLING-EDGE DETECTION
-                 (    edge  and     newInput  and delayed);        -- RISING-EDGE  DETECTION   
+                 (    edge  and     newInput  and delayed);        -- RISING-EDGE  DETECTION
 
     end procedure onePulse;
 
     -------------------------------------------------------------------------------
     -- memRec - return memory record given elements.  Synthesizable for constants.
-    --          Useful if some elements are not needed.  Cleaner instantiation. 
+    --          Useful if some elements are not needed.  Cleaner instantiation.
     -------------------------------------------------------------------------------
     function memRec
        (name    : string;
-        addr    : slv(15 downto 0);
+        addr    : slv(MEM_ADDR_SIZE-1 downto 0);
         acc     : memMapAccType;
-        init    : slv(15 downto 0) := x"0000") 
+        init    : slv(15 downto 0) := x"0000")
         return memMapRecordType is
         variable rtnVar : memMapRecordType;
     begin
@@ -453,22 +454,22 @@ package body tools_pkg is
        (name    : string;
         memMap  : memMapRecArrayType)
         return slv is
-        variable rtnVar : slv(15 downto 0);  
+        variable rtnVar : slv(MEM_ADDR_SIZE-1 downto 0);
     begin
         rtnVar := memMap(memIndex(name,memMap)).addr;
         return rtnVar;
     end function memAddr;
-    
+
     -------------------------------------------------------------------------------
     -- memIndex - returns the index of the string in the memory map
     -------------------------------------------------------------------------------
-    function memIndex( 
+    function memIndex(
         argument : string;
         memMap   : memMapRecArrayType
     ) return natural is
     begin
         for m in memMap'range loop
-            if (nameResize(argument)  = memMap(m).name) then 
+            if (nameResize(argument)  = memMap(m).name) then
                 return m;
             end if;
         end loop;
@@ -478,19 +479,19 @@ package body tools_pkg is
 -------------------------------------------------------------------------------
 -- FF - rising-edge clocked flip-flop for one bit std_logic
 -------------------------------------------------------------------------------
-procedure FF 
+procedure FF
     (signal   iClk       : in  sl;
      signal   iRst       : in  sl;
-     constant iD         : in  sl; -- FF input 
+     constant iD         : in  sl; -- FF input
      signal   oQ         : out sl; -- FF output
      constant INIT       : in  sl := '0'; -- initial and reset value of output
-     constant en         : in  sl := '1'  -- optional enable 
+     constant en         : in  sl := '1'  -- optional enable
      ) is
 begin
   if (iRst = '1') then
     oQ <= INIT;
   elsif rising_edge(iClk) then
-    if (en = '1') then 
+    if (en = '1') then
         oQ <= iD;
     end if;
   end if;
@@ -499,19 +500,19 @@ end procedure FF;
 -------------------------------------------------------------------------------
 -- FF - rising-edge clocked flip-flop for std_logic_vector
 -------------------------------------------------------------------------------
-procedure FF 
+procedure FF
     (signal   iClk       : in  sl;
      signal   iRst       : in  sl;
-     constant iD         : in  slv; -- FF input 
+     constant iD         : in  slv; -- FF input
      signal   oQ         : out slv; -- FF output
      constant INIT       : in  slv; -- initial and reset value of output
-     constant en         : in  sl := '1'  -- optional enable 
+     constant en         : in  sl := '1'  -- optional enable
      ) is
 begin
   if (iRst = '1') then
     oQ <= INIT;
   elsif rising_edge(iClk) then
-    if (en = '1') then 
+    if (en = '1') then
         oQ <= iD;
     end if;
   end if;
@@ -520,19 +521,19 @@ end procedure FF;
 -------------------------------------------------------------------------------
 -- FF - rising-edge clocked flip-flop for unsigned vector
 -------------------------------------------------------------------------------
-procedure FF 
+procedure FF
     (signal   iClk       : in  sl;
      signal   iRst       : in  sl;
-     constant iD         : in  unsigned; -- FF input 
+     constant iD         : in  unsigned; -- FF input
      signal   oQ         : out unsigned; -- FF output
      constant INIT       : in  unsigned; -- initial and reset value of output
-     constant en         : in  sl := '1'  -- optional enable 
+     constant en         : in  sl := '1'  -- optional enable
      ) is
 begin
   if (iRst = '1') then
     oQ <= INIT;
   elsif rising_edge(iClk) then
-    if (en = '1') then 
+    if (en = '1') then
         oQ <= iD;
     end if;
   end if;

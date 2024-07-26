@@ -16,7 +16,7 @@
 --  You should have received a copy of the GNU General Public License
 --  along with A2601.  If not, see <http://www.gnu.org/licenses/>.
 --
-
+--------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;       
 
@@ -64,6 +64,7 @@ begin
 
 end arch;
 
+--------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;       
 
@@ -107,6 +108,8 @@ begin
     
 end arch;
 
+
+--------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;       
 use ieee.numeric_std.all;
@@ -143,6 +146,8 @@ begin
     
 end arch;
 
+
+--------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;       
 use ieee.numeric_std.all;
@@ -222,6 +227,8 @@ begin
 
 end arch;
 
+
+--------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
@@ -366,6 +373,8 @@ begin
 
 end arch;
 
+
+--------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;       
 
@@ -460,6 +469,8 @@ begin
             
 end arch;
 
+
+--------------------------------------------------------------------------------
 -- XYZ
 library ieee;
 use ieee.std_logic_1164.all;       
@@ -498,6 +509,8 @@ begin
 	end process;
 end arch;
 
+
+--------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;       
 
@@ -591,6 +604,8 @@ begin
 
 end arch;
 
+
+--------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;       
 
@@ -627,6 +642,8 @@ begin
         '-' when others;            
 end arch;
 
+
+--------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;       
 use ieee.numeric_std.all;      

@@ -78,13 +78,11 @@ end entity tangtia_top;
 
 architecture rtl of tangtia_top is
 
-COMPONENT ELVDS_OBUF
- PORT (
- O:OUT std_logic;
- OB:OUT std_logic;
- I:IN std_logic
- );
-END COMPONENT;
+    component ELVDS_OBUF
+        port (I :IN  std_logic;
+              OB:OUT std_logic;
+              O :OUT std_logic);
+    end component;
 
     constant VIDEOID          : integer := 2; -- 720x480, 27MHz pixel clock
     constant VIDEO_REFRESH    : real    := 59.94;

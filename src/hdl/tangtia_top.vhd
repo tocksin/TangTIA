@@ -84,11 +84,11 @@ architecture rtl of tangtia_top is
               O :OUT std_logic);
     end component;
 
-    constant VIDEOID          : integer := 2; -- 720x480, 27MHz pixel clock
+    constant VIDEOID          : integer := 1; -- 720x480, 27MHz pixel clock
     constant VIDEO_REFRESH    : real    := 59.94;
     constant AUDIO_RATE       : integer := 48000;
 --    constant AUDIO_CNTS       : integer :=  clock_frequency / audio_rate / 2
-    constant AUDIO_CNTS       : integer := 281;
+    constant AUDIO_CNTS       : integer := 1024;
     constant AUDIO_BIT_WIDTH  : integer := 16;
     constant BIT_WIDTH        : integer := 10;
     constant BIT_HEIGHT       : integer := 10;
@@ -96,7 +96,8 @@ architecture rtl of tangtia_top is
     type audioArrayType is array (1 downto 0) of slv(15 downto 0);
 
     signal reset        : sl;
-    signal clkPixel     : sl;
+    signal clk_pixel    : sl;
+    signal clk_pixel_x5 : sl;
     signal lock         : sl;
     signal clkAudio     : sl := '0';
     signal audioWord    : audioArrayType;
@@ -135,15 +136,21 @@ begin
     --  Reads video from RAM
 
     -- HDMI clocks
-    pllComp : entity work.Gowin_rPLL
-        port map (  clkin   => clk,          -- 27MHz
-                    clkout  => clkPixel,       -- 5x pixel clock: 135 Mhz
-                    lock    => lock);
+    u_pll : entity work.Gowin_rPLL2
+        port map( clkin  => clk,            -- 27 MHz
+                  clkout => clk_pixel_x5,   -- 125.875MHz
+                  lock   => lock);
+                  
+    u_div_5 : entity work.Gowin_CLKDIV
+        port map( hclkin => clk_pixel_x5,
+                  clkout => clk_pixel,      -- 25.175MHz
+                  resetn => lock );
 
     -- not the best way to generate a clock
-    audioClkProc : process (clk)
+    -- 24.5KHz = 25.175/1024
+    audioClkProc : process (clk_pixel)
     begin
-        if rising_edge(clk) then
+        if rising_edge(clk_pixel) then
             if (audioCnt=0) then
                 audioCnt <= to_unsigned(AUDIO_CNTS,audioCnt'length);
                 clkAudio <=  not clkAudio; 
@@ -163,8 +170,8 @@ begin
                     START_X             => 0,
                     START_Y             => 0)
         port map (  reset               => reset,
-                    clk_pixel           => clk,
-                    clk_pixel_x5        => clkPixel,
+                    clk_pixel           => clk_pixel,
+                    clk_pixel_x5        => clk_pixel_x5,
 
                     clk_audio           => clkAudio,
                     audio_sample_word   => audioWord,
@@ -189,8 +196,8 @@ begin
     testAudioProc : process (clkAudio)
     begin
         if rising_edge(clkAudio) then
-            audioWord(1) <= slv(unsigned(audioWord(1)) + 1);
-            audioWord(0) <= slv(unsigned(audioWord(0)) - 1);
+           audioWord(1) <= slv(unsigned(audioWord(1)) + 1);
+           audioWord(0) <= slv(unsigned(audioWord(0)) - 1);
         end if;
     end process testAudioProc;
 
@@ -211,7 +218,7 @@ begin
                     OB  => tmdsDataN(2));
 
     tmdsBuffer3 : ELVDS_OBUF
-        port map(   I   => clkPixel,
+        port map(   I   => clk_pixel,
                     O   => tmdsClkP,
                     OB  => tmdsClkN);
 

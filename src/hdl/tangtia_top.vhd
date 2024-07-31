@@ -84,11 +84,11 @@ architecture rtl of tangtia_top is
               O :OUT std_logic);
     end component;
 
-    constant VIDEOID          : integer := 1; -- 720x480, 27MHz pixel clock
+    constant VIDEOID          : integer := 1; -- 640x480
     constant VIDEO_REFRESH    : real    := 59.94;
     constant AUDIO_RATE       : integer := 48000;
 --    constant AUDIO_CNTS       : integer :=  clock_frequency / audio_rate / 2
-    constant AUDIO_CNTS       : integer := 1024;
+    constant AUDIO_CNTS       : integer := 1023;
     constant AUDIO_BIT_WIDTH  : integer := 16;
     constant BIT_WIDTH        : integer := 10;
     constant BIT_HEIGHT       : integer := 10;
@@ -196,8 +196,8 @@ begin
     testAudioProc : process (clkAudio)
     begin
         if rising_edge(clkAudio) then
-           audioWord(1) <= slv(unsigned(audioWord(1)) + 1);
-           audioWord(0) <= slv(unsigned(audioWord(0)) - 1);
+           audioWord(1)(12 downto 8) <= slv(unsigned(audioWord(1)(12 downto 8)) + "11111");
+           audioWord(0)(12 downto 8) <= slv(unsigned(audioWord(0)(12 downto 8)) - "11111");
         end if;
     end process testAudioProc;
 

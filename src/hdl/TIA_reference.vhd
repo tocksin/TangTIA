@@ -17,6 +17,15 @@
 --  along with A2601.  If not, see <http://www.gnu.org/licenses/>.
 --
 --------------------------------------------------------------------------------
+
+/*
+scanline is 228 clocks - 160 color, 68 blanking
+262 total lines per frame
+
+
+*/
+
+
 library ieee;
 use ieee.std_logic_1164.all;       
 

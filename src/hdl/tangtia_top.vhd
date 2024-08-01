@@ -128,9 +128,14 @@ begin
         --   the addressed location can be read by the microprocessor on data lines 6 and 7 while the 02 clock is high.
     --  Output x/y pixel and color for that pixel
 
-    -- Dual port RAM module
-    --  One side TIA controls
-    --  One side HDMI controls
+    -- SDR SDRAM Interface
+    --  64Mbit in-package memory
+    --  A video buffer holds the frame from the TIA until the HDMI reads it out
+    --  There is not enough block RAM to hold the frame
+    --  One interface must be shared by both sides
+    --  The faster side will control the memory - the HDMI side
+    --  A state machine will handle writes to the memory from the TIA module
+    --  A simple buffer will hold the writes and handle the clock crossing
 
     -- HDMI module
     --  Reads video from RAM

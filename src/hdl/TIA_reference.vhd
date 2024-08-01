@@ -20,7 +20,9 @@
 
 /*
 scanline is 228 clocks - 160 color, 68 blanking
-262 total lines per frame
+262 total lines per frame - 192 displayed, 3 sync, 67 blanking
+160x192 displayed area * 7 bit color = 245,760 bits
+address = 8 bits x 8 bits = 16 bits
 
 
 */

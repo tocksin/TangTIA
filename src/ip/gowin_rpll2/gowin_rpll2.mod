@@ -1,21 +1,20 @@
 -series GW1NR
--device GW1NR-9
--device_version 
+-device GW1NR-9C
 -package QFN88P
 -part_number GW1NR-LV9QN88PC6/I5
 
 
--mod_name Gowin_rPLL
--file_name gowin_rpll
--path C:/git/TangTIA/src/ip/gowin_rpll/
+-mod_name Gowin_rPLL2
+-file_name gowin_rpll2
+-path C:/kitahard/Tang_Nano_9K/hdmi_t/src/gowin_rpll/
 -type PLL
 -rPll true
--file_type vhdl
--dev_type GW1NR-9
+-file_type vlg
+-dev_type GW1NR-9C
 -dyn_idiv_sel false
--idiv_sel 1
+-idiv_sel 3
 -dyn_fbdiv_sel false
--fbdiv_sel 5
+-fbdiv_sel 14
 -dyn_odiv_sel false
 -odiv_sel 4
 -dyn_da_en true

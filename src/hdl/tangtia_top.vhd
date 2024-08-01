@@ -78,19 +78,17 @@ end entity tangtia_top;
 
 architecture rtl of tangtia_top is
 
-COMPONENT ELVDS_OBUF
- PORT (
- O:OUT std_logic;
- OB:OUT std_logic;
- I:IN std_logic
- );
-END COMPONENT;
+    component ELVDS_OBUF
+        port (I :IN  std_logic;
+              OB:OUT std_logic;
+              O :OUT std_logic);
+    end component;
 
-    constant VIDEOID          : integer := 2; -- 720x480, 27MHz pixel clock
+    constant VIDEOID          : integer := 1; -- 640x480
     constant VIDEO_REFRESH    : real    := 59.94;
     constant AUDIO_RATE       : integer := 48000;
 --    constant AUDIO_CNTS       : integer :=  clock_frequency / audio_rate / 2
-    constant AUDIO_CNTS       : integer := 281;
+    constant AUDIO_CNTS       : integer := 1023;
     constant AUDIO_BIT_WIDTH  : integer := 16;
     constant BIT_WIDTH        : integer := 10;
     constant BIT_HEIGHT       : integer := 10;
@@ -98,7 +96,8 @@ END COMPONENT;
     type audioArrayType is array (1 downto 0) of slv(15 downto 0);
 
     signal reset        : sl;
-    signal clkPixel     : sl;
+    signal clk_pixel    : sl;
+    signal clk_pixel_x5 : sl;
     signal lock         : sl;
     signal clkAudio     : sl := '0';
     signal audioWord    : audioArrayType;
@@ -114,25 +113,49 @@ begin
     
     -- TIA module
     --  Takes in the bus pins
+        -- databus(7 downto 0)
+        -- addrbus(5 downto 0)
+        -- cs0_n                -- needs to be low to be valid address
+        -- cs3_n                -- needs to be low to be valid address
+        -- r/w
+        -- OSC                  -- primary fast clock 3.58MHz
+        -- PHI0                 -- derived from OSC, output to the CPU
+        -- PHI2                 -- input back from CPU, 1.19MHz
+        -- RDY
+        -- If the read-write line is low, 
+        --   the data bits will be written into the addressed write location when the 02 clock goes from high to low.
+        -- If the read-write line is high, 
+        --   the addressed location can be read by the microprocessor on data lines 6 and 7 while the 02 clock is high.
     --  Output x/y pixel and color for that pixel
 
-    -- Dual port RAM module
-    --  One side TIA controls
-    --  One side HDMI controls
+    -- SDR SDRAM Interface
+    --  64Mbit in-package memory
+    --  A video buffer holds the frame from the TIA until the HDMI reads it out
+    --  There is not enough block RAM to hold the frame
+    --  One interface must be shared by both sides
+    --  The faster side will control the memory - the HDMI side
+    --  A state machine will handle writes to the memory from the TIA module
+    --  A simple buffer will hold the writes and handle the clock crossing
 
     -- HDMI module
     --  Reads video from RAM
 
     -- HDMI clocks
-    pllComp : entity work.Gowin_rPLL
-        port map (  clkin   => clk,          -- 27MHz
-                    clkout  => clkPixel,       -- 5x pixel clock: 135 Mhz
-                    lock    => lock);
+    u_pll : entity work.Gowin_rPLL2
+        port map( clkin  => clk,            -- 27 MHz
+                  clkout => clk_pixel_x5,   -- 125.875MHz
+                  lock   => lock);
+                  
+    u_div_5 : entity work.Gowin_CLKDIV
+        port map( hclkin => clk_pixel_x5,
+                  clkout => clk_pixel,      -- 25.175MHz
+                  resetn => lock );
 
     -- not the best way to generate a clock
-    audioClkProc : process (clk)
+    -- 24.5KHz = 25.175/1024
+    audioClkProc : process (clk_pixel)
     begin
-        if rising_edge(clk) then
+        if rising_edge(clk_pixel) then
             if (audioCnt=0) then
                 audioCnt <= to_unsigned(AUDIO_CNTS,audioCnt'length);
                 clkAudio <=  not clkAudio; 
@@ -152,8 +175,8 @@ begin
                     START_X             => 0,
                     START_Y             => 0)
         port map (  reset               => reset,
-                    clk_pixel           => clk,
-                    clk_pixel_x5        => clkPixel,
+                    clk_pixel           => clk_pixel,
+                    clk_pixel_x5        => clk_pixel_x5,
 
                     clk_audio           => clkAudio,
                     audio_sample_word   => audioWord,
@@ -178,8 +201,8 @@ begin
     testAudioProc : process (clkAudio)
     begin
         if rising_edge(clkAudio) then
-            audioWord(1) <= slv(unsigned(audioWord(1)) + 1);
-            audioWord(0) <= slv(unsigned(audioWord(0)) - 1);
+           audioWord(1)(12 downto 8) <= slv(unsigned(audioWord(1)(12 downto 8)) + "11111");
+           audioWord(0)(12 downto 8) <= slv(unsigned(audioWord(0)(12 downto 8)) - "11111");
         end if;
     end process testAudioProc;
 
@@ -200,7 +223,7 @@ begin
                     OB  => tmdsDataN(2));
 
     tmdsBuffer3 : ELVDS_OBUF
-        port map(   I   => clkPixel,
+        port map(   I   => clk_pixel,
                     O   => tmdsClkP,
                     OB  => tmdsClkN);
 

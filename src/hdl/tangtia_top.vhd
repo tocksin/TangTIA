@@ -47,6 +47,14 @@ entity tangtia_top is
             flashCs     : out sl;
             flashMosi   : out sl;
             flashMiso   : in  sl;
+            
+            -- PSRAM(Internal connection)
+            O_psram_ck      : out    slv(1 downto 0); 
+            O_psram_ck_n    : out    slv(1 downto 0);
+            IO_psram_rwds   : inout  slv(1 downto 0);
+            IO_psram_dq     : inout  slv(15 downto 0);
+            O_psram_reset_n : out    slv(1 downto 0);
+            O_psram_cs_n    : out    slv(1 downto 0);
 
             pin25       : in  sl;
             pin26       : in  sl;
@@ -128,7 +136,7 @@ begin
         --   the addressed location can be read by the microprocessor on data lines 6 and 7 while the 02 clock is high.
     --  Output x/y pixel and color for that pixel
 
-    -- SDR SDRAM Interface
+    -- PSRAM Interface
     --  64Mbit in-package memory
     --  A video buffer holds the frame from the TIA until the HDMI reads it out
     --  There is not enough block RAM to hold the frame
@@ -136,6 +144,40 @@ begin
     --  The faster side will control the memory - the HDMI side
     --  A state machine will handle writes to the memory from the TIA module
     --  A simple buffer will hold the writes and handle the clock crossing
+    --  DDR mode, 6 toggles to send command addres, 8 toggles delay, 8 more delay, then 
+    memoryComp : entity work.PSRAM_Memory_Interface_HS_WB16
+        port map(
+                    clk             (clk_i),            --input usually from external clock?
+                    rst_n           (rst_n_i),          --input active low reset
+                    memory_clk      (memory_clk_i),     --input usually from pll? (50-250MHz)
+                    pll_lock        (pll_lock_i),       --input use with memory clock
+                    
+                    -- To top level external ports
+                    O_psram_ck      (O_psram_ck_o),     -- clock
+                    O_psram_ck_n    (O_psram_ck_n_o),   -- clock inverted
+                    IO_psram_rwds   (IO_psram_rwds_io), -- read/write control
+                    O_psram_reset_n (O_psram_reset_n_o),-- reset active low
+                    IO_psram_dq     (IO_psram_dq_io),   -- data in and out
+                    O_psram_cs_n    (O_psram_cs_n_o),   -- chip select active low
+                    
+                    init_calib0     (init_calib0_o),    --output initialization completed
+                    init_calib1     (init_calib1_o),    --output initialization completed
+                    clk_out         (clk_out_o),        --output 1/2 memory clock
+                    cmd0            (cmd0_i),           --input command channel
+                    cmd1            (cmd1_i),           --input command channel
+                    cmd_en0         (cmd_en0_i),        --input command channel enable
+                    cmd_en1         (cmd_en1_i),        --input command channel enable
+                    addr0           (addr0_i),          --input [20:0] address input
+                    addr1           (addr1_i),          --input [20:0] 
+                    wr_data0        (wr_data0_i),       --input [31:0] write data
+                    wr_data1        (wr_data1_i),       --input [31:0] write data
+                    rd_data0        (rd_data0_o),       --output [31:0]  read data
+                    rd_data1        (rd_data1_o),       --output [31:0]  read data
+                    rd_data_valid0  (rd_data_valid0_o), --output read data 1 = valid
+                    rd_data_valid1  (rd_data_valid1_o), --output command channel
+                    data_mask0      (data_mask0_i),     --input [3:0] mask for wr_data0
+                    data_mask1      (data_mask1_i)      --input [3:0] mask for wr_data1
+    );
 
     -- HDMI module
     --  Reads video from RAM
@@ -192,6 +234,7 @@ begin
                     tmds_clock          => tmdsClk,
                     tmds                => tmds);
 
+    -- Need 24 bits of data every 25.175MHz
     -- Test video
     rgb(23 downto 16) <= cx(7 downto 0);
     rgb(15 downto 8) <= cy(7 downto 0);

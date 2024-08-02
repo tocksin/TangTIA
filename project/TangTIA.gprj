@@ -20,7 +20,10 @@
         <File path="C:/git/TangTIA/src/hdl/sys_description_pkg.vhd" type="file.vhdl" enable="1"/>
         <File path="C:/git/TangTIA/src/hdl/tangtia_top.vhd" type="file.vhdl" enable="1"/>
         <File path="C:/git/TangTIA/src/hdl/tools_pkg.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/uart_rx.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/uart_tx.vhd" type="file.vhdl" enable="1"/>
         <File path="C:/git/TangTIA/src/ip/psram_memory_interface_hs_v2/psram_memory_interface_hs_v2.vhd" type="file.vhdl" enable="1"/>
         <File path="C:/git/TangTIA/src/constraints/tangnano9k.cst" type="file.cst" enable="1"/>
+        <File path="src/TangTIA.rao" type="file.gao" enable="1"/>
     </FileList>
 </Project>

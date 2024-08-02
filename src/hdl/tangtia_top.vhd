@@ -120,8 +120,8 @@ begin
     reset <= not btn2;
 
     uartTxProc : entity work.uart_tx
-    generic map(baud            : integer := UART_RATE;
-                clkRate         : time    := SYS_CLOCK_PERIOD);
+    generic map(baud            => UART_RATE,
+                clkRate         => SYS_CLOCK_PERIOD)
       port map (clkIn           => clk_pixel,
                 rstIn           => reset,
                 sendEnIn        => '1',

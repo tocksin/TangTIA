@@ -26,7 +26,8 @@ package sys_description_pkg is
 
     -- Clock periods
     constant INPUT_CLOCK_PERIOD           : time    :=   37.037 ns; -- 27 MHz
-    constant SYS_CLOCK_PERIOD             : time    :=   INPUT_CLOCK_PERIOD*2;
+    constant PIXEL_CLOCK_PERIOD           : time    :=   39.721 ns; -- 25.175 MHz
+    constant SYS_CLOCK_PERIOD             : time    :=   PIXEL_CLOCK_PERIOD;
     constant HEARTBEAT_PERIOD             : time    :=  1000 ms; -- 1 Hz
     constant HEARTBEAT_CNTS               : integer := HEARTBEAT_PERIOD / SYS_CLOCK_PERIOD;
 --    constant HEARTBEAT_CNTS               : integer := 12000000;

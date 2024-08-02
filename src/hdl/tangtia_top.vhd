@@ -115,6 +115,10 @@ architecture rtl of tangtia_top is
     signal tmds         : slv(2 downto 0);
     signal tmdsClk      : sl;
     signal audioCnt     : unsigned(8 downto 0);
+    
+    signal uartData     : slv(7 downto 0);
+    signal uartStrobe   : sl;
+    
 begin
 
     reset <= not btn2;
@@ -124,10 +128,19 @@ begin
                 clkRate         => SYS_CLOCK_PERIOD)
       port map (clkIn           => clk_pixel,
                 rstIn           => reset,
-                sendEnIn        => '1',
-                dataIn          => x"40",
+                sendEnIn        => uartStrobe,
+                dataIn          => slv(unsigned(uartData) + 1),
                 readyOut        => open,
                 uartSerialOut   => uartTx);
+
+    uartRxProc : entity work.uart_rx
+    generic map(baud            => UART_RATE,
+                clkRate         => SYS_CLOCK_PERIOD)
+      port map (clkIn           => clk_pixel,
+                rstIn           => reset,
+                serialIn        => uartRx,
+                recvStrbOut     => uartStrobe,
+                recvDataOut     => uartData);
                 
     -- TIA module
     --  Takes in the bus pins

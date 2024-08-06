@@ -141,16 +141,6 @@ architecture rtl of tangtia_top is
     
 begin
 
-    -- HDMI mode specifies pixel clock rate at 25.175MHz
-    --   This is the system clock and must be used to drive the PSRAM module
-    --   PSRAM module outputs the clock which must be used for its interface
-    --   Working backwards, the PSRAM input clock is 2x the pixel clock (50.35MHz)
-    --   PSRAM high-speed clock is 4x its input clock (201.4MHz) and a phase shift version of it
-    --   PLL1 generates 50.35, 201.4MHz, and 201.4MHz+90deg phase shift.
-    --   PLL1 driven by external 27MHz clock
-    -- HDMI also needs 5x pixel clock
-    --   PLL2 driven by pixel clock to generate 125.875MHz
-
     reset <= not btn2;
 
     -- HDMI mode specifies pixel clock rate at 25.175MHz

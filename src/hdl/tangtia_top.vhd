@@ -124,7 +124,11 @@ architecture rtl of tangtia_top is
 
     signal uartData     : slv(7 downto 0);
     signal uartStrobe   : sl;
-
+    signal uartCnt      : unsigned(7 downto 0);
+    signal byteHolder   : slv(255 downto 0);
+    signal sendCnt      : unsigned(7 downto 0);
+    signal sending      : sl;
+    
     signal psramRdData  : slv(63 downto 0);
     signal psramRdValid : sl;
     signal psramWrData  : slv(63 downto 0);
@@ -163,15 +167,24 @@ begin
         port map( clkin   => clkSys,        -- 25.175 MHz
                   clkout  => clkSys5x);     -- 125.875MHz
 
-    uartTxProc : entity work.uart_tx
-    generic map(baud            => UART_RATE,
-                clkRate         => SYS_CLOCK_PERIOD)
-      port map (clkIn           => clkSys,
-                rstIn           => reset,
-                sendEnIn        => psramRdValid,
-                dataIn          => psramRdData(7 downto 0),
-                readyOut        => open,
-                uartSerialOut   => uartTx);
+    -- uartTxProc : entity work.uart_tx
+    -- generic map(baud            => UART_RATE,
+                -- clkRate         => SYS_CLOCK_PERIOD)
+      -- port map (clkIn           => clkSys,
+                -- rstIn           => reset,
+                -- sendEnIn        => psramRdValid,
+                -- dataIn          => psramRdData(7 downto 0),
+                -- readyOut        => open,
+                -- uartSerialOut   => uartTx);
+    uartTxFifoComp : entity work.uart_tx_fifo(rtl)
+        generic map(baud        => UART_RATE,
+                    clkRate     => SYS_CLOCK_PERIOD)
+           port map(clkIn       => clkSys,
+                    rstIn       => reset,
+                    uartTxOut   => uartTx,
+                    wrIn        => sending,
+                    dataIn      => slv(uartCnt),
+                    fullOut     => open);
 
     uartRxProc : entity work.uart_rx
     generic map(baud            => UART_RATE,
@@ -181,6 +194,42 @@ begin
                 serialIn        => uartRx,
                 recvStrbOut     => uartStrobe,
                 recvDataOut     => uartData);
+
+    uartCntProc : process (clkSys)
+    begin
+        if rising_edge(clkSys) then
+            if uartStrobe ='1' then
+                uartCnt <= x"40";
+                sendCnt <= x"00";
+                sending <= '0';
+            elsif psramRdValid='1' then
+                uartCnt <= uartCnt + 1;
+                if uartCnt=x"40" Then
+                    byteHolder(255 downto 192) <= psramRdData;
+                end if;
+                if uartCnt=x"41" Then
+                    byteHolder(191 downto 128) <= psramRdData;
+                end if;
+                if uartCnt=x"42" Then
+                    byteHolder(127 downto 64) <= psramRdData;
+                end if;
+                if uartCnt=x"43" Then
+                    sending <= '1';
+                    byteHolder(63 downto 0) <= psramRdData;
+                end if;
+            end if;
+
+            if sending='1' then
+                if sendCnt = x"1F" then
+                    uartCnt <= x"00";
+                    sending <= '0';
+                else
+                    byteHolder <= byteHolder(247 downto 0) & x"40";
+                    sendCnt <= sendCnt+1;
+                end if;
+            end if;
+        end if;
+    end process uartCntProc;
 
     -- TIA module
     --  Takes in the bus pins
@@ -209,7 +258,6 @@ begin
     --  A simple buffer will hold the writes and handle the clock crossing
     --  DDR mode, 6 toggles to send command addres, 8 toggles delay, 8 more delay, then
     psramAddr <= "0" & x"00000";
-    psramWrData <= x"40414243444546" & uartData;
     psramMask <= x"FF";
 
     -- When I receive a character, write it into memory
@@ -224,6 +272,8 @@ begin
                     psramRW <= '1';
                     psramEn <= '0';
                     if uartStrobe='1' then
+--                        psramWrData <= x"41424344454647" & uartData;
+                        psramWrData <= x"4142434445464748";
                         psramEn <= '1';
                         rwState <= WRITING;
                         memDelayEn <= '1';
@@ -247,7 +297,7 @@ begin
         if rising_edge(clkSys) then
             memDelayDone <= '0';
             if memDelayEn ='1' then
-                memDelayCnt <= x"0F";
+                memDelayCnt <= x"FF";
             elsif memDelayCnt=0 then
                 memDelayDone <= '1';
             else

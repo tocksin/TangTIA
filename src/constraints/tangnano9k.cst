@@ -7,8 +7,8 @@
 //Created Time: Thu 03 03 19:24:24 2022
 
 // System functions
-IO_LOC "clk" 52;
-IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+IO_LOC "iClk" 52;
+IO_PORT "iClk" IO_TYPE=LVCMOS33 PULL_MODE=UP;
 
 // Buttons (active low)
 IO_LOC "btn1" 3;

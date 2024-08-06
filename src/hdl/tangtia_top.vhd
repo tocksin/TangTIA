@@ -25,7 +25,7 @@ library work;           use work.sys_description_pkg.all;
                         use work.tools_pkg.all;
 
 entity tangtia_top is
-    port (  clk         : in sl;    -- 27 MHz
+    port (  iClk         : in sl;    -- 27 MHz
             led         : in slv(5 downto 0);
             btn1        : in  sl;
             btn2        : in  sl;
@@ -106,8 +106,12 @@ architecture rtl of tangtia_top is
     type RW_STATE_TYPE is (IDLE, WRITING, READING);
 
     signal reset        : sl;
-    signal clk_pixel    : sl;
-    signal clk_pixel_x5 : sl;
+    signal clkFast      : sl;
+    signal clkFastPhased: sl;
+    signal clkDiv4      : sl;
+    signal clkSys       : sl;
+    signal clkSys5x     : sl;
+    
     signal lock         : sl;
     signal clkAudio     : sl := '0';
     signal audioWord    : audioArrayType;
@@ -121,10 +125,17 @@ architecture rtl of tangtia_top is
     signal uartData     : slv(7 downto 0);
     signal uartStrobe   : sl;
     
+    signal psramRdData  : slv(63 downto 0);
+    signal psramRdValid : sl;
+    signal psramWrData  : slv(63 downto 0);
+    signal psramMask    : slv(7 downto 0);
     signal psramAddr    : slv(20 downto 0);
+    signal psramRW      : sl;
+    signal psramEn      : sl;
     signal rwState      : RW_STATE_TYPE;
+    signal init_calib   : sl;
     
-    signal memDelayCnt  : unsigned(4 downto 0);
+    signal memDelayCnt  : unsigned(7 downto 0);
     signal memDelayEn   : sl;
     signal memDelayDone : sl;
     
@@ -132,20 +143,40 @@ begin
 
     reset <= not btn2;
 
+    -- HDMI mode specifies pixel clock rate at 25.175MHz
+    --   This is the system clock and must be used to drive the PSRAM module
+    --   PSRAM module outputs the clock which must be used for its interface
+    --   Working backwards, the PSRAM high-speed clock is 2x output clock (50.35MHz)
+    --   PLL1 generates 12.5875MHz, 50.35MHz, and 50.35MHz+90deg phase shift.
+    --   PLL1 driven by external 27MHz clock
+    -- HDMI also needs 5x pixel clock
+    --   PLL2 driven by pixel clock to generate 125.875MHz
+    -- HDMI clocks
+    psram_pll : entity work.Gowin_rPLL
+        port map( clkin   => iClk,          -- 27 MHz
+                  clkout  => clkFast,       -- 201.4MHz  (200.571)
+                  clkoutp => clkFastPhased, -- 201.4MHz+90deg
+                  clkoutd => clkDiv4,       -- 50.35MHz  (50.1429)
+                  lock    => lock);
+
+    hdmi_pll : entity work.Gowin_rPLL2
+        port map( clkin   => clkSys,        -- 25.175 MHz
+                  clkout  => clkSys5x);     -- 125.875MHz
+
     uartTxProc : entity work.uart_tx
     generic map(baud            => UART_RATE,
                 clkRate         => SYS_CLOCK_PERIOD)
-      port map (clkIn           => clk_pixel,
+      port map (clkIn           => clkSys,
                 rstIn           => reset,
                 sendEnIn        => psramRdValid,
-                dataIn          => psramRdData,
+                dataIn          => psramRdData(7 downto 0),
                 readyOut        => open,
                 uartSerialOut   => uartTx);
 
     uartRxProc : entity work.uart_rx
     generic map(baud            => UART_RATE,
                 clkRate         => SYS_CLOCK_PERIOD)
-      port map (clkIn           => clk_pixel,
+      port map (clkIn           => clkSys,
                 rstIn           => reset,
                 serialIn        => uartRx,
                 recvStrbOut     => uartStrobe,
@@ -177,22 +208,22 @@ begin
     --  A state machine will handle writes to the memory from the TIA module
     --  A simple buffer will hold the writes and handle the clock crossing
     --  DDR mode, 6 toggles to send command addres, 8 toggles delay, 8 more delay, then 
-    psramAddr <= x"000";
+    psramAddr <= "0" & x"00000";
     psramWrData <= x"00000000000000" & uartData;
     psramMask <= x"FF";
 
     -- When I receive a character, write it into memory
     -- Wait a certain amount of time (16 clock cycles?)
     -- Then perform a read
-    ReadWriteProc : process (clk_pixel)
+    ReadWriteProc : process (clkSys)
     begin
-        if rising_edge(clk_pixel) then
+        if rising_edge(clkSys) then
             memDelayEn <= '0';
             case (rwState) is
                 when IDLE =>
                     psramRW <= '1';
                     psramEn <= '0';
-                    if uartStrobe=1 then
+                    if uartStrobe='1' then
                         psramEn <= '1';
                         rwState <= WRITING;
                         memDelayEn <= '1';
@@ -200,7 +231,7 @@ begin
                 when WRITING =>
                     psramRW <= '0';
                     psramEn <= '0';
-                    if memDelayDone=1 then
+                    if memDelayDone='1' then
                         rwState <= READING;
                     end if;
                 when READING =>
@@ -211,9 +242,9 @@ begin
         end if;
     end process ReadWriteProc;
     
-    memDelayProc : process (clk_pixel)
+    memDelayProc : process (clkSys)
     begin
-        if rising_edge(clk_pixel) then
+        if rising_edge(clkSys) then
             memDelayDone <= '0';
             if memDelayEn ='1' then
                 memDelayCnt <= x"0F";
@@ -225,15 +256,16 @@ begin
         end if;
     end process memDelayProc;
 
+    
     memoryComp: entity work.PSRAM_Memory_Interface_HS_V2_Top
         port map (
-            clk_d           => clk_pixel,           --input generated by same pll, divided by 4 normally
-            memory_clk      => clk_pixel_x5,        --input usually from pll? (50-250MHz)
-            memory_clk_p    => memory_clk_p,        --input usually from pll, but phase shift 90 degrees
+            clk_d           => clkDiv4,             --input generated by same pll, divided by 4 normally
+            memory_clk      => clkFast,             --input usually from pll? (50-250MHz)
+            memory_clk_p    => clkFastPhased,       --input usually from pll, but phase shift 90 degrees
             pll_lock        => lock,                --input use with memory clock
             rst_n           => not reset,           --input active low reset
             
-            init_calib      => open,                --output initialization completed
+            init_calib      => init_calib,                --output initialization completed
             addr            => psramAddr,           --input address (21-bit)
             wr_data         => psramWrData,         --input write data (64-bit)
             data_mask       => psramMask,           --input mask for wr_data (8-bits)
@@ -241,7 +273,7 @@ begin
             rd_data_valid   => psramRdValid,        --output read data 1 = valid
             cmd             => psramRW,             --input command channel (0=read, 1=write)
             cmd_en          => psramEn,             --input command enable
-            clk_out         => open,                --output of 1/2 clk_d
+            clk_out         => clkSys,              --output of 1/2 memory_clk
 
             -- To top level external ports
             O_psram_ck      => O_psram_ck,          -- clock
@@ -255,22 +287,11 @@ begin
     -- HDMI module
     --  Reads video from RAM
 
-    -- HDMI clocks
-    u_pll : entity work.Gowin_rPLL2
-        port map( clkin  => clk,            -- 27 MHz
-                  clkout => clk_pixel_x5,   -- 125.875MHz
-                  lock   => lock);
-                  
-    u_div_5 : entity work.Gowin_CLKDIV
-        port map( hclkin => clk_pixel_x5,
-                  clkout => clk_pixel,      -- 25.175MHz
-                  resetn => lock );
-
     -- not the best way to generate a clock
     -- 24.5KHz = 25.175/1024
-    audioClkProc : process (clk_pixel)
+    audioClkProc : process (clkSys)
     begin
-        if rising_edge(clk_pixel) then
+        if rising_edge(clkSys) then
             if (audioCnt=0) then
                 audioCnt <= to_unsigned(AUDIO_CNTS,audioCnt'length);
                 clkAudio <=  not clkAudio; 
@@ -290,8 +311,8 @@ begin
                     START_X             => 0,
                     START_Y             => 0)
         port map (  reset               => reset,
-                    clk_pixel           => clk_pixel,
-                    clk_pixel_x5        => clk_pixel_x5,
+                    clk_pixel           => clkSys,
+                    clk_pixel_x5        => clkSys5x,
 
                     clk_audio           => clkAudio,
                     audio_sample_word   => audioWord,
@@ -339,7 +360,7 @@ begin
                     OB  => tmdsDataN(2));
 
     tmdsBuffer3 : ELVDS_OBUF
-        port map(   I   => clk_pixel,
+        port map(   I   => clkSys,
                     O   => tmdsClkP,
                     OB  => tmdsClkN);
 

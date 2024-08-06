@@ -183,7 +183,7 @@ begin
                     rstIn       => reset,
                     uartTxOut   => uartTx,
                     wrIn        => sending,
-                    dataIn      => slv(uartCnt),
+                    dataIn      => byteHolder(255 downto 192),
                     fullOut     => open);
 
     uartRxProc : entity work.uart_rx
@@ -205,17 +205,18 @@ begin
             elsif psramRdValid='1' then
                 uartCnt <= uartCnt + 1;
                 if uartCnt=x"40" Then
-                    byteHolder(255 downto 192) <= psramRdData;
+--                    byteHolder(255 downto 192) <= psramRdData;
+                    byteHolder(255 downto 192) <= uartCnt;
                 end if;
                 if uartCnt=x"41" Then
-                    byteHolder(191 downto 128) <= psramRdData;
+                    byteHolder(191 downto 128) <= uartCnt;
                 end if;
                 if uartCnt=x"42" Then
-                    byteHolder(127 downto 64) <= psramRdData;
+                    byteHolder(127 downto 64) <= uartCnt;
                 end if;
                 if uartCnt=x"43" Then
                     sending <= '1';
-                    byteHolder(63 downto 0) <= psramRdData;
+                    byteHolder(63 downto 0) <= uartCnt;
                 end if;
             end if;
 

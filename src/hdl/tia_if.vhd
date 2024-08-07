@@ -31,9 +31,10 @@ entity tia_if is
             --Atari bus interface
             iVideoClk   : in sl;
             iChipSelect : in sl;
-            iReadWrite  : in sl;
+            iReadWrite  : in sl;        -- low=read high=write
             iAddr       : in slv(5 downto 0);
             iData       : in slv(7 downto 0);
+            iReady      : in sl;                -- goes high on horizontal blank
 
             --Video output interface
             oColor      : out slv(7 downto 0);

@@ -15,7 +15,7 @@
         <File path="C:/git/TangTIA/src/hdl/hdmi2/serializer.sv" type="file.verilog" enable="1"/>
         <File path="C:/git/TangTIA/src/hdl/hdmi2/source_product_description_info_frame.sv" type="file.verilog" enable="1"/>
         <File path="C:/git/TangTIA/src/hdl/hdmi2/tmds_channel.sv" type="file.verilog" enable="1"/>
-        <File path="C:/git/TangTIA/src/ip/psram_memory_interface_hs_v2/psram_memory_interface_hs_v2.v" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/ip/psram_memory_interface_hs/psram_memory_interface_hs.v" type="file.verilog" enable="1"/>
         <File path="C:/git/TangTIA/src/hdl/dp_ram.vhd" type="file.vhdl" enable="1"/>
         <File path="C:/git/TangTIA/src/hdl/fifo.vhd" type="file.vhdl" enable="1"/>
         <File path="C:/git/TangTIA/src/hdl/sys_description_pkg.vhd" type="file.vhdl" enable="1"/>

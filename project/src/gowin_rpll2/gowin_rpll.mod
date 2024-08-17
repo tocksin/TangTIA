@@ -6,7 +6,7 @@
 
 
 -mod_name Gowin_rPLL2
--file_name gowin_rpll2
+-file_name gowin_rpll
 -path C:/git/TangTIA/project/src/gowin_rpll2/
 -type PLL
 -rPll true

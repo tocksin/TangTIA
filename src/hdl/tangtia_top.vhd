@@ -25,11 +25,11 @@ library work;           use work.sys_description_pkg.all;
                         use work.tools_pkg.all;
 
 entity tangtia_top is
-    port (  clk         : in sl;    -- 27 MHz
-            led         : in slv(5 downto 0);
+    port (  iClk         : in sl;    -- 27 MHz
+            led         : out slv(5 downto 0);
             btn1        : in  sl;
             btn2        : in  sl;
-            
+
             tmdsDataP   : out slv(2 downto 0);
             tmdsDataN   : out slv(2 downto 0);
             tmdsClkP    : out sl;
@@ -47,6 +47,14 @@ entity tangtia_top is
             flashCs     : out sl;
             flashMosi   : out sl;
             flashMiso   : in  sl;
+
+            -- PSRAM(Internal connection)
+                O_psram_ck      : out    slv(1 downto 0);
+                O_psram_ck_n    : out    slv(1 downto 0);
+                IO_psram_rwds   : inout  slv(1 downto 0);
+                IO_psram_dq     : inout  slv(15 downto 0);
+                O_psram_reset_n : out    slv(1 downto 0);
+                O_psram_cs_n    : out    slv(1 downto 0);
 
             pin25       : in  sl;
             pin26       : in  sl;
@@ -92,12 +100,18 @@ architecture rtl of tangtia_top is
     constant AUDIO_BIT_WIDTH  : integer := 16;
     constant BIT_WIDTH        : integer := 10;
     constant BIT_HEIGHT       : integer := 10;
-    
+
     type audioArrayType is array (1 downto 0) of slv(15 downto 0);
 
+    type RW_STATE_TYPE is (IDLE, WRITING, READING);
+
     signal reset        : sl;
-    signal clk_pixel    : sl;
-    signal clk_pixel_x5 : sl;
+    signal clkFast      : sl;
+    signal clkFastPhased: sl;
+    signal clkDiv4      : sl;
+    signal clkSys       : sl;
+    signal clkSys5x     : sl;
+
     signal lock         : sl;
     signal clkAudio     : sl := '0';
     signal audioWord    : audioArrayType;
@@ -107,10 +121,114 @@ architecture rtl of tangtia_top is
     signal tmds         : slv(2 downto 0);
     signal tmdsClk      : sl;
     signal audioCnt     : unsigned(8 downto 0);
+
+    signal uartData     : slv(7 downto 0);
+    signal uartStrobe   : sl;
+    signal uartCnt      : unsigned(7 downto 0);
+    signal byteHolder   : slv(255 downto 0);
+    signal sendCnt      : unsigned(7 downto 0);
+    signal sending      : sl;
+    
+    signal psramRdData  : slv(63 downto 0);
+    signal psramRdValid : sl;
+    signal psramWrData  : slv(63 downto 0);
+    signal psramMask    : slv(7 downto 0);
+    signal psramAddr    : slv(20 downto 0);
+    signal psramRW      : sl;
+    signal psramEn      : sl;
+    signal rwState      : RW_STATE_TYPE;
+    signal init_calib   : sl;
+
+    signal memDelayCnt  : unsigned(7 downto 0);
+    signal memDelayEn   : sl;
+    signal memDelayDone : sl;
+
 begin
 
     reset <= not btn2;
-    
+
+    -- HDMI mode specifies pixel clock rate at 25.175MHz
+    --   This is the system clock and must be used to drive the PSRAM module
+    --   PSRAM module outputs the clock which must be used for its interface
+    --   Working backwards, the PSRAM high-speed clock is 2x output clock (50.35MHz)
+    --   PLL1 generates 12.5875MHz, 50.35MHz, and 50.35MHz+90deg phase shift.
+    --   PLL1 driven by external 27MHz clock
+    -- HDMI also needs 5x pixel clock
+    --   PLL2 driven by pixel clock to generate 125.875MHz
+    -- HDMI clock
+    hdmi_pll : entity work.Gowin_rPLL2
+        port map( clkin   => clkSys,        -- 25.175 MHz
+                  clkout  => clkSys5x);     -- 125.875MHz
+
+    -- uartTxProc : entity work.uart_tx
+    -- generic map(baud            => UART_RATE,
+                -- clkRate         => SYS_CLOCK_PERIOD)
+      -- port map (clkIn           => clkSys,
+                -- rstIn           => reset,
+                -- sendEnIn        => psramRdValid,
+                -- dataIn          => psramRdData(7 downto 0),
+                -- readyOut        => open,
+                -- uartSerialOut   => uartTx);
+    uartTxFifoComp : entity work.uart_tx_fifo(rtl)
+        generic map(baud        => UART_RATE,
+                    clkRate     => SYS_CLOCK_PERIOD)
+           port map(clkIn       => clkSys,
+                    rstIn       => reset,
+                    uartTxOut   => uartTx,
+                    wrIn        => sending,
+--                    dataIn      => slv(sendCnt+x"40"),
+                    dataIn      => byteHolder(255 downto 248),
+                    fullOut     => open);
+
+    uartRxProc : entity work.uart_rx
+    generic map(baud            => UART_RATE,
+                clkRate         => SYS_CLOCK_PERIOD)
+      port map (clkIn           => clkSys,
+                rstIn           => reset,
+                serialIn        => uartRx,
+                recvStrbOut     => uartStrobe,
+                recvDataOut     => uartData);
+
+    uartCntProc : process (clkSys)
+    begin
+        if rising_edge(clkSys) then
+            if uartStrobe ='1' then
+                uartCnt <= x"40";
+                sendCnt <= x"00";
+                sending <= '0';
+            elsif psramRdValid='1' then
+                uartCnt <= uartCnt + 1;
+                if uartCnt=x"40" then
+                    byteHolder(255 downto 192) <= psramRdData;
+--                    byteHolder(255 downto 192) <= slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt);
+                end if;
+                if uartCnt=x"41" then
+                    byteHolder(255 downto 192) <= psramRdData;
+--                    byteHolder(191 downto 128) <= slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt);
+                end if;
+                if uartCnt=x"42" then
+                    byteHolder(255 downto 192) <= psramRdData;
+--                    byteHolder(127 downto 64) <= slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt);
+                end if;
+                if uartCnt=x"43" then
+                    sending <= '1';
+                    byteHolder(255 downto 192) <= psramRdData(63 downto 8) & x"0D";
+--                    byteHolder(63 downto 0) <= slv(uartCnt) & slv(uartCnt+1) & slv(uartCnt+2) & slv(uartCnt+3) & slv(uartCnt+4) & slv(uartCnt+5) & slv(uartCnt+6) & slv(uartCnt+7);
+                end if;
+            end if;
+
+            if sending='1' then
+                if sendCnt = x"1F" then
+                    uartCnt <= x"00";
+                    sending <= '0';
+                else
+                    byteHolder <= byteHolder(247 downto 0) & x"40";
+                    sendCnt <= sendCnt+1;
+                end if;
+            end if;
+        end if;
+    end process uartCntProc;
+
     -- TIA module
     --  Takes in the bus pins
         -- databus(7 downto 0)
@@ -122,13 +240,13 @@ begin
         -- PHI0                 -- derived from OSC, output to the CPU
         -- PHI2                 -- input back from CPU, 1.19MHz
         -- RDY
-        -- If the read-write line is low, 
+        -- If the read-write line is low,
         --   the data bits will be written into the addressed write location when the 02 clock goes from high to low.
-        -- If the read-write line is high, 
+        -- If the read-write line is high,
         --   the addressed location can be read by the microprocessor on data lines 6 and 7 while the 02 clock is high.
     --  Output x/y pixel and color for that pixel
 
-    -- SDR SDRAM Interface
+    -- PSRAM Interface
     --  64Mbit in-package memory
     --  A video buffer holds the frame from the TIA until the HDMI reads it out
     --  There is not enough block RAM to hold the frame
@@ -136,35 +254,108 @@ begin
     --  The faster side will control the memory - the HDMI side
     --  A state machine will handle writes to the memory from the TIA module
     --  A simple buffer will hold the writes and handle the clock crossing
+    --  DDR mode, 6 toggles to send command addres, 8 toggles delay, 8 more delay, then
+    -- psramAddr <= "0" & x"00100";
+    -- psramMask <= x"00";
+
+    -- When I receive a character, write it into memory
+    -- Wait a certain amount of time (16 clock cycles?)
+    -- then perform a read
+    -- ReadWriteProc : process (clkSys)
+    -- begin
+        -- if rising_edge(clkSys) then
+            -- memDelayEn <= '0';
+            -- case (rwState) is
+                -- when IDLE =>
+                    -- psramRW <= '1';
+                    -- psramEn <= '0';
+                    -- if uartStrobe='1' then
+-- --                        psramWrData <= x"41424344454647" & uartData;
+                        -- psramWrData <= x"4142434445464748";
+                        -- psramEn <= '1';
+                        -- rwState <= WRITING;
+                        -- memDelayEn <= '1';
+                    -- end if;
+                -- when WRITING =>
+                    -- psramRW <= '0';
+                    -- psramEn <= '0';
+                    -- if memDelayDone='1' then
+                        -- rwState <= READING;
+                    -- end if;
+                -- when READING =>
+                    -- psramRW <= '0';
+                    -- psramEn <= '1';
+                    -- rwState <= IDLE;
+            -- end case;
+        -- end if;
+    -- end process ReadWriteProc;
+
+    -- memDelayProc : process (clkSys)
+    -- begin
+        -- if rising_edge(clkSys) then
+            -- memDelayDone <= '0';
+            -- if memDelayEn ='1' then
+                -- memDelayCnt <= x"FF";
+            -- elsif memDelayCnt=0 then
+                -- memDelayDone <= '1';
+            -- else
+                -- memDelayCnt <= memDelayCnt - 1;
+            -- end if;
+        -- end if;
+    -- end process memDelayProc;
+
+-- PSRAM_Memory_Interface_HS_Top psram(
+    -- .clk(sys_clk), .memory_clk(memory_clk), .pll_lock(pll_lock), .rst_n(sys_resetn),
+    -- .O_psram_ck(O_psram_ck), .O_psram_ck_n(O_psram_ck_n), .IO_psram_rwds(IO_psram_rwds),
+    -- .IO_psram_dq(IO_psram_dq), .O_psram_reset_n(O_psram_reset_n), .O_psram_cs_n(O_psram_cs_n),
+    -- .addr(addr), .wr_data(wr_data), .rd_data(rd_data), .rd_data_valid(rd_data_valid),
+    -- .cmd(cmd), .cmd_en(cmd_en), .data_mask(data_mask),
+    -- .clk_out(clk), .init_calib(calib)
+
+
+    psramComp : entity work.psram_top
+       port map(sys_clk    => iClk,
+                sys_resetn => btn2,
+                button     => btn1,
+                led        => led,
+                oClk       => clkSys,
+
+            -- -- To top level external ports
+                O_psram_ck      => O_psram_ck,          -- clock
+                O_psram_ck_n    => O_psram_ck_n,        -- clock inverted
+                IO_psram_dq     => IO_psram_dq,         -- data in and out
+                IO_psram_rwds   => IO_psram_rwds,       -- read/write control
+                O_psram_cs_n    => O_psram_cs_n,        -- chip select active low
+                O_psram_reset_n => O_psram_reset_n      -- reset active low
+            );
+                 
+                 
 
     -- HDMI module
     --  Reads video from RAM
-
-    -- HDMI clocks
-    u_pll : entity work.Gowin_rPLL2
-        port map( clkin  => clk,            -- 27 MHz
-                  clkout => clk_pixel_x5,   -- 125.875MHz
-                  lock   => lock);
-                  
-    u_div_5 : entity work.Gowin_CLKDIV
-        port map( hclkin => clk_pixel_x5,
-                  clkout => clk_pixel,      -- 25.175MHz
-                  resetn => lock );
+    --  Each pixel is 8 bits.  Each line is 160 pixels, 252 lines.
+    --  RAM is read 4 sets of 64-bit words for a total of 256 bits or 32 bytes
+    --  So 5 reads will return one full line of pixels.
+    --  Delay between reads (and writes) is 14 clocks.
+    --  Time to read one line is 70 clocks.  (same to write).
+    --  Total time to read and write one line is 140 clocks.
+    --  Since this is less than 160 pixels per line, then there's enough time.
+    --  But since there's significant latency, we need to buffer the data in and out of the PSRAM.
 
     -- not the best way to generate a clock
     -- 24.5KHz = 25.175/1024
-    audioClkProc : process (clk_pixel)
+    audioClkProc : process (clkSys)
     begin
-        if rising_edge(clk_pixel) then
+        if rising_edge(clkSys) then
             if (audioCnt=0) then
                 audioCnt <= to_unsigned(AUDIO_CNTS,audioCnt'length);
-                clkAudio <=  not clkAudio; 
+                clkAudio <=  not clkAudio;
             else
                 audioCnt <= audioCnt - 1;
             end if;
         end if;
     end process audioClkProc;
-    
+
     hdmiComp : entity work.hdmi
         generic map(VIDEO_ID_CODE       => VIDEOID,
                     DVI_OUTPUT          => 0,
@@ -175,8 +366,8 @@ begin
                     START_X             => 0,
                     START_Y             => 0)
         port map (  reset               => reset,
-                    clk_pixel           => clk_pixel,
-                    clk_pixel_x5        => clk_pixel_x5,
+                    clk_pixel           => clkSys,
+                    clk_pixel_x5        => clkSys5x,
 
                     clk_audio           => clkAudio,
                     audio_sample_word   => audioWord,
@@ -187,11 +378,12 @@ begin
                     frame_width         => open,
                     frame_height        => open,
                     screen_width        => open,
-                    screen_height       => open, 
-                    
+                    screen_height       => open,
+
                     tmds_clock          => tmdsClk,
                     tmds                => tmds);
 
+    -- Need 24 bits of data every 25.175MHz
     -- Test video
     rgb(23 downto 16) <= cx(7 downto 0);
     rgb(15 downto 8) <= cy(7 downto 0);
@@ -223,7 +415,7 @@ begin
                     OB  => tmdsDataN(2));
 
     tmdsBuffer3 : ELVDS_OBUF
-        port map(   I   => clk_pixel,
+        port map(   I   => clkSys,
                     O   => tmdsClkP,
                     OB  => tmdsClkN);
 

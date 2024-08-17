@@ -15,11 +15,20 @@
         <File path="C:/git/TangTIA/src/hdl/hdmi2/serializer.sv" type="file.verilog" enable="1"/>
         <File path="C:/git/TangTIA/src/hdl/hdmi2/source_product_description_info_frame.sv" type="file.verilog" enable="1"/>
         <File path="C:/git/TangTIA/src/hdl/hdmi2/tmds_channel.sv" type="file.verilog" enable="1"/>
-        <File path="C:/git/TangTIA/src/ip/gowin_clkdiv/gowin_clkdiv.v" type="file.verilog" enable="1"/>
-        <File path="C:/git/TangTIA/src/ip/gowin_rpll2/gowin_rpll2.v" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/ip/psram_memory_interface_hs/psram_memory_interface_hs.v" type="file.verilog" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/dp_ram.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/fifo.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/psram_top.vhd" type="file.vhdl" enable="1"/>
         <File path="C:/git/TangTIA/src/hdl/sys_description_pkg.vhd" type="file.vhdl" enable="1"/>
         <File path="C:/git/TangTIA/src/hdl/tangtia_top.vhd" type="file.vhdl" enable="1"/>
         <File path="C:/git/TangTIA/src/hdl/tools_pkg.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/uart_rx.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/uart_rx_fifo.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/uart_tx.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/uart_tx_fifo.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/ip/gowin_rpll/gowin_rpll.vhd" type="file.vhdl" enable="1"/>
+        <File path="C:/git/TangTIA/src/ip/gowin_rpll2/gowin_rpll2.vhd" type="file.vhdl" enable="1"/>
         <File path="C:/git/TangTIA/src/constraints/tangnano9k.cst" type="file.cst" enable="1"/>
+        <File path="C:/git/TangTIA/src/hdl/TangTIA.rao" type="file.gao" enable="1"/>
     </FileList>
 </Project>

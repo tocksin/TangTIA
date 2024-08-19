@@ -129,9 +129,9 @@ architecture rtl of tangtia_top is
     signal sendCnt      : unsigned(7 downto 0);
     signal sending      : sl;
     
-    signal psramRdData  : slv(63 downto 0);
+    signal testCount    : slv(63 downto 0);
     signal psramRdValid : sl;
-    signal psramWrData  : slv(63 downto 0);
+    signal responseData : slv(63 downto 0);
     signal psramMask    : slv(7 downto 0);
     signal psramAddr    : slv(20 downto 0);
     signal psramRW      : sl;
@@ -142,11 +142,16 @@ architecture rtl of tangtia_top is
     signal memDelayCnt  : unsigned(7 downto 0);
     signal memDelayEn   : sl;
     signal memDelayDone : sl;
+    
+    signal oneButton    : sl;
+    signal oneButtonR   : sl;
+    signal buttonInv    : sl;
 
 begin
 
     reset <= not btn2;
-
+    buttonInv <= not btn1;
+    
     -- HDMI mode specifies pixel clock rate at 25.175MHz
     --   This is the system clock and must be used to drive the PSRAM module
     --   PSRAM module outputs the clock which must be used for its interface
@@ -155,20 +160,10 @@ begin
     --   PLL1 driven by external 27MHz clock
     -- HDMI also needs 5x pixel clock
     --   PLL2 driven by pixel clock to generate 125.875MHz
-    -- HDMI clock
     hdmi_pll : entity work.Gowin_rPLL2
         port map( clkin   => clkSys,        -- 25.175 MHz
                   clkout  => clkSys5x);     -- 125.875MHz
 
-    -- uartTxProc : entity work.uart_tx
-    -- generic map(baud            => UART_RATE,
-                -- clkRate         => SYS_CLOCK_PERIOD)
-      -- port map (clkIn           => clkSys,
-                -- rstIn           => reset,
-                -- sendEnIn        => psramRdValid,
-                -- dataIn          => psramRdData(7 downto 0),
-                -- readyOut        => open,
-                -- uartSerialOut   => uartTx);
     uartTxFifoComp : entity work.uart_tx_fifo(rtl)
         generic map(baud        => UART_RATE,
                     clkRate     => SYS_CLOCK_PERIOD)
@@ -176,8 +171,7 @@ begin
                     rstIn       => reset,
                     uartTxOut   => uartTx,
                     wrIn        => sending,
---                    dataIn      => slv(sendCnt+x"40"),
-                    dataIn      => byteHolder(255 downto 248),
+                    dataIn      => responseData(7 downto 0),
                     fullOut     => open);
 
     uartRxProc : entity work.uart_rx
@@ -189,45 +183,6 @@ begin
                 recvStrbOut     => uartStrobe,
                 recvDataOut     => uartData);
 
-    uartCntProc : process (clkSys)
-    begin
-        if rising_edge(clkSys) then
-            if uartStrobe ='1' then
-                uartCnt <= x"40";
-                sendCnt <= x"00";
-                sending <= '0';
-            elsif psramRdValid='1' then
-                uartCnt <= uartCnt + 1;
-                if uartCnt=x"40" then
-                    byteHolder(255 downto 192) <= psramRdData;
---                    byteHolder(255 downto 192) <= slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt);
-                end if;
-                if uartCnt=x"41" then
-                    byteHolder(255 downto 192) <= psramRdData;
---                    byteHolder(191 downto 128) <= slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt);
-                end if;
-                if uartCnt=x"42" then
-                    byteHolder(255 downto 192) <= psramRdData;
---                    byteHolder(127 downto 64) <= slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt) & slv(uartCnt);
-                end if;
-                if uartCnt=x"43" then
-                    sending <= '1';
-                    byteHolder(255 downto 192) <= psramRdData(63 downto 8) & x"0D";
---                    byteHolder(63 downto 0) <= slv(uartCnt) & slv(uartCnt+1) & slv(uartCnt+2) & slv(uartCnt+3) & slv(uartCnt+4) & slv(uartCnt+5) & slv(uartCnt+6) & slv(uartCnt+7);
-                end if;
-            end if;
-
-            if sending='1' then
-                if sendCnt = x"1F" then
-                    uartCnt <= x"00";
-                    sending <= '0';
-                else
-                    byteHolder <= byteHolder(247 downto 0) & x"40";
-                    sendCnt <= sendCnt+1;
-                end if;
-            end if;
-        end if;
-    end process uartCntProc;
 
     -- TIA module
     --  Takes in the bus pins
@@ -255,69 +210,18 @@ begin
     --  A state machine will handle writes to the memory from the TIA module
     --  A simple buffer will hold the writes and handle the clock crossing
     --  DDR mode, 6 toggles to send command addres, 8 toggles delay, 8 more delay, then
-    -- psramAddr <= "0" & x"00100";
-    -- psramMask <= x"00";
 
-    -- When I receive a character, write it into memory
-    -- Wait a certain amount of time (16 clock cycles?)
-    -- then perform a read
-    -- ReadWriteProc : process (clkSys)
-    -- begin
-        -- if rising_edge(clkSys) then
-            -- memDelayEn <= '0';
-            -- case (rwState) is
-                -- when IDLE =>
-                    -- psramRW <= '1';
-                    -- psramEn <= '0';
-                    -- if uartStrobe='1' then
--- --                        psramWrData <= x"41424344454647" & uartData;
-                        -- psramWrData <= x"4142434445464748";
-                        -- psramEn <= '1';
-                        -- rwState <= WRITING;
-                        -- memDelayEn <= '1';
-                    -- end if;
-                -- when WRITING =>
-                    -- psramRW <= '0';
-                    -- psramEn <= '0';
-                    -- if memDelayDone='1' then
-                        -- rwState <= READING;
-                    -- end if;
-                -- when READING =>
-                    -- psramRW <= '0';
-                    -- psramEn <= '1';
-                    -- rwState <= IDLE;
-            -- end case;
-        -- end if;
-    -- end process ReadWriteProc;
+    testCount <= x"00000000000000" & uartData;
 
-    -- memDelayProc : process (clkSys)
-    -- begin
-        -- if rising_edge(clkSys) then
-            -- memDelayDone <= '0';
-            -- if memDelayEn ='1' then
-                -- memDelayCnt <= x"FF";
-            -- elsif memDelayCnt=0 then
-                -- memDelayDone <= '1';
-            -- else
-                -- memDelayCnt <= memDelayCnt - 1;
-            -- end if;
-        -- end if;
-    -- end process memDelayProc;
+    led <= not responseData(5 downto 0);
 
--- PSRAM_Memory_Interface_HS_Top psram(
-    -- .clk(sys_clk), .memory_clk(memory_clk), .pll_lock(pll_lock), .rst_n(sys_resetn),
-    -- .O_psram_ck(O_psram_ck), .O_psram_ck_n(O_psram_ck_n), .IO_psram_rwds(IO_psram_rwds),
-    -- .IO_psram_dq(IO_psram_dq), .O_psram_reset_n(O_psram_reset_n), .O_psram_cs_n(O_psram_cs_n),
-    -- .addr(addr), .wr_data(wr_data), .rd_data(rd_data), .rd_data_valid(rd_data_valid),
-    -- .cmd(cmd), .cmd_en(cmd_en), .data_mask(data_mask),
-    -- .clk_out(clk), .init_calib(calib)
-
-
-    psramComp : entity work.psram_top
+    psramComp : entity work.psram_if
        port map(sys_clk    => iClk,
                 sys_resetn => btn2,
-                button     => btn1,
-                led        => led,
+                iEnable    => uartStrobe,
+                ivData     => testCount,
+                ovData     => responseData,
+                oReady     => sending,
                 oClk       => clkSys,
 
             -- -- To top level external ports
@@ -328,8 +232,6 @@ begin
                 O_psram_cs_n    => O_psram_cs_n,        -- chip select active low
                 O_psram_reset_n => O_psram_reset_n      -- reset active low
             );
-                 
-                 
 
     -- HDMI module
     --  Reads video from RAM

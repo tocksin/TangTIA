@@ -202,14 +202,6 @@ begin
     --  Output x/y pixel and color for that pixel
 
     -- PSRAM Interface
-    --  64Mbit in-package memory
-    --  A video buffer holds the frame from the TIA until the HDMI reads it out
-    --  There is not enough block RAM to hold the frame
-    --  One interface must be shared by both sides
-    --  The faster side will control the memory - the HDMI side
-    --  A state machine will handle writes to the memory from the TIA module
-    --  A simple buffer will hold the writes and handle the clock crossing
-    --  DDR mode, 6 toggles to send command addres, 8 toggles delay, 8 more delay, then
 
     testCount <= x"00000000000000" & uartData;
 
@@ -234,15 +226,6 @@ begin
             );
 
     -- HDMI module
-    --  Reads video from RAM
-    --  Each pixel is 8 bits.  Each line is 160 pixels, 252 lines.
-    --  RAM is read 4 sets of 64-bit words for a total of 256 bits or 32 bytes
-    --  So 5 reads will return one full line of pixels.
-    --  Delay between reads (and writes) is 14 clocks.
-    --  Time to read one line is 70 clocks.  (same to write).
-    --  Total time to read and write one line is 140 clocks.
-    --  Since this is less than 160 pixels per line, then there's enough time.
-    --  But since there's significant latency, we need to buffer the data in and out of the PSRAM.
 
     -- not the best way to generate a clock
     -- 24.5KHz = 25.175/1024
